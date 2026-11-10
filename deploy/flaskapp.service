@@ -1,0 +1,14 @@
+[Unit]
+Description=Gunicorn service for jingjing's Flask application
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/jingjing-act-10
+Environment="PATH=/home/ubuntu/jingjing-act-10/venv/bin"
+ExecStart=/home/ubuntu/jingjing-act-10/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

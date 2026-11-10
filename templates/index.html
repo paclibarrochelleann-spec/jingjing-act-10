@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JJ Console · Student API</title>
+<style>
+:root {
+    --bg: #0d1520; --panel: #151f2c; --panel2: #1b2736; --line: #263548;
+    --text: #e6edf3; --muted: #8fa0b5; --teal: #2dd4bf; --violet: #a78bfa; --amber: #fbbf24;
+    --red: #f87171; --green: #4ade80;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 15px/1.5 "Segoe UI", system-ui, sans-serif; }
+body.lock { overflow: hidden; }
+h1, h2, h3 { margin: 0; letter-spacing: 0.01em; }
+button { font: inherit; cursor: pointer; }
+input { font: inherit; }
+.mono { font-family: "Cascadia Code", Consolas, monospace; }
+.muted { color: var(--muted); }
+
+/* ---------- shell: sidebar + main ---------- */
+.app { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+.side { position: sticky; top: 0; height: 100vh; background: var(--panel); border-right: 1px solid var(--line);
+        display: flex; flex-direction: column; padding: 22px 16px; gap: 22px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand .logo { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 800;
+               color: #062925; background: linear-gradient(135deg, var(--teal), var(--violet)); }
+.brand b { display: block; font-size: 16px; }
+.brand span { color: var(--muted); font-size: 12px; }
+.nav { display: flex; flex-direction: column; gap: 4px; }
+.nav button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border: 0; border-radius: 10px;
+              background: transparent; color: var(--muted); text-align: left; }
+.nav button i { font-style: normal; width: 22px; text-align: center; font-size: 18px; }
+.nav button:hover { background: var(--panel2); color: var(--text); }
+.nav button.on { background: rgba(45,212,191,0.12); color: var(--teal); box-shadow: inset 3px 0 0 var(--teal); }
+.myapi { margin-top: auto; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.myapi small { color: var(--muted); display: block; margin-bottom: 6px; }
+.myapi code { display: block; word-break: break-all; font-size: 12px; color: var(--teal); margin-bottom: 10px; }
+.live { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; margin-top: 10px; }
+.live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(74,222,128,0.15); }
+
+.main { padding: 28px 34px 48px; min-width: 0; }
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+.top h1 { font-size: 26px; }
+.top p { margin: 0; color: var(--muted); font-size: 13px; }
+.view[hidden] { display: none; }
+
+/* ---------- common widgets ---------- */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.card h3 { font-size: 15px; margin-bottom: 12px; }
+.btn { border: 1px solid var(--line); background: var(--panel2); color: var(--text); border-radius: 10px; padding: 9px 14px; }
+.btn:hover { border-color: var(--teal); }
+.btn.primary { background: var(--teal); color: #062925; border-color: var(--teal); font-weight: 700; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.violet { background: var(--violet); border-color: var(--violet); color: #1b1240; font-weight: 700; }
+.btn.danger { color: var(--red); }
+.btn.danger:hover { border-color: var(--red); }
+.btn.small { padding: 6px 10px; font-size: 13px; }
+.btn:disabled { opacity: 0.5; cursor: wait; }
+input[type=text], input[type=number], input[type=search], input[type=url] {
+    width: 100%; background: #0f1824; color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+input:focus { outline: 2px solid rgba(45,212,191,0.45); border-color: var(--teal); }
+label span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; border: 1px solid transparent; }
+.c-local { color: var(--teal); background: rgba(45,212,191,0.12); border-color: rgba(45,212,191,0.35); }
+.c-class { color: var(--green); background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.35); }
+.c-ext { color: var(--amber); background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.35); }
+.c-none { color: var(--muted); background: var(--panel2); border-color: var(--line); }
+.av { width: 44px; height: 44px; border-radius: 12px; flex: none; display: grid; place-items: center; font-weight: 800;
+      background: linear-gradient(135deg, #1f3b4d, #2b2a55); color: var(--teal); }
+.empty { color: var(--muted); padding: 22px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; }
+
+/* ---------- overview ---------- */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; position: relative; overflow: hidden; }
+.stat::after { content: ""; position: absolute; inset: auto 0 0 0; height: 3px; background: var(--k); }
+.stat small { color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
+.stat b { display: block; font-size: 38px; line-height: 1.1; margin-top: 4px; }
+.mix { display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: var(--panel2); margin: 6px 0 10px; }
+.mix div { transition: flex 0.4s; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; color: var(--muted); font-size: 13px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+.two { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; margin-top: 14px; }
+.seg { display: inline-flex; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-bottom: 12px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; color: var(--muted); padding: 7px 14px; border-radius: 8px; }
+.seg button.on { background: var(--teal); color: #062925; font-weight: 700; }
+.list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow: auto; }
+.item { display: flex; align-items: center; gap: 12px; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.item .grow { flex: 1; min-width: 0; }
+.item strong { display: block; overflow-wrap: anywhere; }
+.feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.feed li { display: flex; gap: 10px; font-size: 14px; }
+.feed time { color: var(--muted); font-size: 12px; min-width: 52px; padding-top: 2px; }
+
+/* ---------- records ---------- */
+.toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.toolbar .grow { flex: 1; min-width: 200px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid;
+        grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; }
+.tile:hover { border-color: #35506b; }
+.tmain { display: flex; flex-direction: column; min-width: 0; }
+.tmain strong { overflow-wrap: anywhere; }
+.tact { grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+/* ---------- partner + send ---------- */
+.urlbar { display: flex; gap: 10px; flex-wrap: wrap; }
+.urlbar input { flex: 1; min-width: 220px; }
+.status { color: var(--muted); font-size: 13px; margin: 10px 0 14px; }
+.prow { display: grid; grid-template-columns: auto 1fr auto auto; gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
+.prow .acts { display: flex; gap: 8px; }
+.sendgrid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; align-items: start; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fields .full { grid-column: 1 / -1; }
+.preview { text-align: center; }
+.preview .av { margin: 0 auto 10px; width: 64px; height: 64px; font-size: 22px; }
+.reply { margin-top: 14px; border: 1px solid rgba(74,222,128,0.4); background: rgba(74,222,128,0.08); border-radius: 12px; padding: 14px; }
+.reply h4 { margin: 0 0 4px; color: var(--green); }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 10px; }
+.kv div { background: var(--panel2); border-radius: 8px; padding: 8px 10px; }
+.kv small { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.kv b { overflow-wrap: anywhere; }
+
+/* ---------- explorer ---------- */
+.explorer { display: grid; grid-template-columns: 330px 1fr; gap: 14px; align-items: start; }
+.ep { background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+.ep code { color: var(--teal); }
+.ep .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.ep .row input { flex: 1; min-width: 70px; }
+.out { background: #0a1018; border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-height: 260px; }
+.out pre { margin: 10px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; color: #c9d7e6; font-size: 13px; max-height: 520px; overflow: auto; }
+.pill { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+.p-ok { background: rgba(74,222,128,0.15); color: var(--green); }
+.p-err { background: rgba(248,113,113,0.15); color: var(--red); }
+
+/* ---------- drawer, modal, toasts ---------- */
+.shade { position: fixed; inset: 0; background: rgba(3,8,14,0.6); z-index: 40; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100%); background: var(--panel); border-left: 1px solid var(--line);
+          z-index: 41; display: flex; flex-direction: column; box-shadow: -20px 0 40px rgba(0,0,0,0.4); }
+.drawer[hidden], .shade[hidden] { display: none; }
+.dhead { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.dbody { padding: 20px; overflow: auto; }
+.form { display: grid; gap: 14px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.dcard { text-align: center; }
+.dcard .av { width: 72px; height: 72px; font-size: 24px; margin: 0 auto 12px; }
+.modal-wrap { position: fixed; inset: 0; background: rgba(3,8,14,0.7); display: grid; place-items: center; padding: 16px; z-index: 60; }
+.modal { width: min(420px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
+.modal h3 { font-size: 18px; margin-bottom: 8px; }
+.modal p { margin: 0 0 18px; color: var(--muted); }
+.modal .row { justify-content: flex-end; }
+#toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 10px; z-index: 70; max-width: calc(100% - 36px); }
+.toast { background: var(--panel2); border: 1px solid var(--line); border-left: 4px solid var(--teal); border-radius: 10px; padding: 11px 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); animation: pop 0.2s; overflow-wrap: anywhere; }
+.toast.err { border-left-color: var(--red); }
+@keyframes pop { from { transform: translateY(8px); opacity: 0; } }
+
+/* ---------- small screens: sidebar becomes a bottom bar ---------- */
+@media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .side { position: fixed; z-index: 30; top: auto; bottom: 0; left: 0; right: 0; height: auto; flex-direction: row; padding: 6px;
+            border-right: 0; border-top: 1px solid var(--line); }
+    .brand, .myapi, .live { display: none; }
+    .nav { flex-direction: row; width: 100%; justify-content: space-around; }
+    .nav button { flex-direction: column; gap: 2px; padding: 8px 4px; font-size: 11px; text-align: center; justify-content: center; min-height: 52px; box-shadow: none !important; }
+    .main { padding: 18px 14px 96px; }
+    .stats { grid-template-columns: 1fr; }
+    .two, .sendgrid, .explorer { grid-template-columns: 1fr; }
+    .prow { grid-template-columns: auto 1fr; }
+    .prow .chip, .prow .acts { grid-column: 2; }
+    #toasts { bottom: 78px; }
+}
+@media (pointer: coarse) { input { font-size: 16px; } .btn { min-height: 44px; } }
+</style>
+</head>
+<body>
+<div class="app">
+    <aside class="side">
+        <div class="brand"><div class="logo">JJ</div><div><b>JJ Console</b><span>Student API · Labs 7–9</span></div></div>
+        <nav class="nav" id="nav">
+            <button data-v="overview"><i>◧</i> Overview</button>
+            <button data-v="records"><i>▤</i> Records</button>
+            <button data-v="partner"><i>⇄</i> Partner</button>
+            <button data-v="send"><i>➤</i> Send</button>
+            <button data-v="explorer"><i>⌗</i> API Explorer</button>
+        </nav>
+        <div class="myapi">
+            <small>My public API</small>
+            <code id="myApiUrl"></code>
+            <button class="btn small" id="btnShare">Share my API URL</button>
+            <div class="live">auto-refresh · 10 s</div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <div class="top"><h1 id="viewTitle">Overview</h1><p id="viewSub"></p></div>
+
+        <!-- ===== OVERVIEW ===== -->
+        <section class="view" id="v-overview">
+            <div class="stats">
+                <div class="stat" style="--k: var(--teal)"><small>My local records</small><b id="nLocal">0</b></div>
+                <div class="stat" style="--k: var(--green)"><small>Imported / received</small><b id="nImported">0</b></div>
+                <div class="stat" style="--k: var(--violet)"><small>Partner records loaded</small><b id="nPartner">0</b></div>
+            </div>
+            <div class="card">
+                <h3>Where the data came from</h3>
+                <div class="mix" id="mix"></div>
+                <div class="legend">
+                    <span><i style="background: var(--teal)"></i>Local</span>
+                    <span><i style="background: var(--green)"></i>Imported / received</span>
+                    <span><i style="background: var(--violet)"></i>Partner (not saved)</span>
+                </div>
+            </div>
+            <div class="two">
+                <div class="card">
+                    <h3>Integration dashboard</h3>
+                    <div class="seg" id="seg">
+                        <button data-t="local" class="on">Local</button>
+                        <button data-t="imported">Imported</button>
+                        <button data-t="partner">Partner</button>
+                    </div>
+                    <div class="list" id="dashList"></div>
+                </div>
+                <div class="card">
+                    <h3>Activity</h3>
+                    <ul class="feed" id="feed"></ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== RECORDS ===== -->
+        <section class="view" id="v-records" hidden>
+            <div class="toolbar">
+                <input type="search" id="q" class="grow" placeholder="Search by name, student ID or program">
+                <button class="btn primary" id="btnNew">+ New record</button>
+            </div>
+            <div class="tiles" id="tiles"></div>
+        </section>
+
+        <!-- ===== PARTNER ===== -->
+        <section class="view" id="v-partner" hidden>
+            <div class="card">
+                <h3>Classmate's (partner) API</h3>
+                <div class="urlbar">
+                    <input type="url" id="pUrl" class="purl" placeholder="http://203.0.113.10/api/students">
+                    <button class="btn primary" id="btnRetrieve">Retrieve records</button>
+                </div>
+                <div class="status" id="pStatus">Enter your partner's AWS Static IP or domain, then retrieve their records.</div>
+                <div id="pList"></div>
+            </div>
+        </section>
+
+        <!-- ===== SEND ===== -->
+        <section class="view" id="v-send" hidden>
+            <div class="sendgrid">
+                <div class="card">
+                    <h3>Record to send</h3>
+                    <div class="fields">
+                        <label class="full"><span>Partner URL</span><input type="url" id="sUrl" class="purl" placeholder="http://203.0.113.10/api/students"></label>
+                        <label><span>Student ID</span><input type="text" id="s_id" value="EXT-004" placeholder="EXT-004"></label>
+                        <label><span>Name</span><input type="text" id="s_name" value="Hana Villar" placeholder="Hana Villar"></label>
+                        <label><span>Program</span><input type="text" id="s_program" value="BSIS" placeholder="BSIS"></label>
+                        <label><span>Year</span><input type="number" id="s_year" min="1" value="2" placeholder="2"></label>
+                        <label class="full"><span>Section</span><input type="text" id="s_section" value="D" placeholder="D"></label>
+                    </div>
+                    <div class="row" style="margin-top: 16px"><button class="btn violet" id="btnSend">Send to partner</button></div>
+                    <div id="reply"></div>
+                </div>
+                <div class="card preview" id="preview"></div>
+            </div>
+        </section>
+
+        <!-- ===== API EXPLORER (Lab 7) ===== -->
+        <section class="view" id="v-explorer" hidden>
+            <div class="explorer">
+                <div>
+                    <div class="ep"><code>GET /students</code><div class="muted">All rows in students.db</div>
+                        <div class="row"><button class="btn small primary" data-run="/students">Run</button></div></div>
+                    <div class="ep"><code>GET /students/&lt;id&gt;</code><div class="muted">One student by database ID</div>
+                        <div class="row"><input type="number" id="e_id" min="1" value="2"><button class="btn small primary" id="runOne">Run</button></div></div>
+                    <div class="ep"><code>GET /students/filter</code><div class="muted">By program, year or section</div>
+                        <div class="row"><input type="text" id="e_prog" placeholder="program" value="BSCS"><input type="number" id="e_year" placeholder="year"><input type="text" id="e_sec" placeholder="section"></div>
+                        <div class="row"><button class="btn small primary" id="runFilter">Run</button></div></div>
+                    <div class="ep"><code>GET /api/students</code><div class="muted">Read-only API shared with partners</div>
+                        <div class="row"><button class="btn small primary" data-run="/api/students">Run</button></div></div>
+                </div>
+                <div class="out" id="out"><span class="muted">Run an endpoint to see its response.</span></div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<div class="shade" id="shade" hidden></div>
+<aside class="drawer" id="drawer" hidden role="dialog" aria-modal="true">
+    <div class="dhead"><h3 id="dTitle"></h3><button class="btn small" id="dClose">Close</button></div>
+    <div class="dbody" id="dBody"></div>
+</aside>
+<div id="toasts"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const JSON_HEADERS = {'Content-Type': 'application/json'};
+const state = {records: [], partner: [], tab: 'local', feed: []};
+
+/* tiny DOM builder: every value goes in as text, never as HTML */
+function h(tag, attrs, ...kids) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+        if (k === 'class') n.className = v;
+        else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+        else if (v === true) n.setAttribute(k, '');
+        else if (v !== false && v != null) n.setAttribute(k, v);
+    }
+    kids.flat().forEach(c => { if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(String(c))); });
+    return n;
+}
+const initials = name => String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const isLocal = r => (r.source || 'Local') === 'Local';
+function chip(source) {
+    const cls = !source ? 'c-none' : source === 'Local' ? 'c-local' : source === 'Classmate API' ? 'c-class' : 'c-ext';
+    return h('span', {class: 'chip ' + cls}, source || 'No source');
+}
+function toast(msg, type) {
+    const t = h('div', {class: 'toast ' + (type === 'err' ? 'err' : '')}, msg);
+    $('#toasts').append(t); setTimeout(() => t.remove(), 4200);
+}
+function log(msg) {
+    const t = new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    state.feed.unshift({t, msg}); state.feed = state.feed.slice(0, 7); renderFeed();
+}
+async function api(url, opts) {
+    const r = await fetch(url, opts);
+    let d = null; try { d = await r.json(); } catch (e) { /* not JSON */ }
+    if (!r.ok) throw new Error((d && (d.error || d.message)) || 'Request failed (' + r.status + ')');
+    return d;
+}
+async function busy(btn, fn) {
+    const label = btn.textContent; btn.disabled = true; btn.textContent = 'Working…';
+    try { await fn(); } finally { btn.disabled = false; btn.textContent = label; }
+}
+
+/* ---------- confirm popup ---------- */
+function confirmDialog(title, text, okLabel, danger) {
+    return new Promise(resolve => {
+        const done = v => { document.removeEventListener('keydown', onKey); wrap.remove(); resolve(v); };
+        const onKey = e => { if (e.key === 'Escape') done(false); };
+        const cancel = h('button', {class: 'btn', type: 'button', onclick: () => done(false)}, 'Cancel');
+        const ok = h('button', {class: 'btn ' + (danger ? 'danger' : 'primary'), type: 'button', onclick: () => done(true)}, okLabel || 'OK');
+        const wrap = h('div', {class: 'modal-wrap', onclick: e => { if (e.target === wrap) done(false); }},
+            h('div', {class: 'modal', role: 'dialog', 'aria-modal': 'true'}, h('h3', {}, title), h('p', {}, text), h('div', {class: 'row'}, cancel, ok)));
+        document.addEventListener('keydown', onKey); document.body.append(wrap); cancel.focus();
+    });
+}
+
+/* ---------- drawer ---------- */
+const drawerOpen = () => !$('#drawer').hidden;
+function openDrawer(title, ...nodes) {
+    $('#dTitle').textContent = title; $('#dBody').replaceChildren(...nodes);
+    $('#drawer').hidden = false; $('#shade').hidden = false; document.body.classList.add('lock');
+}
+function closeDrawer() { $('#drawer').hidden = true; $('#shade').hidden = true; document.body.classList.remove('lock'); }
+$('#dClose').onclick = closeDrawer; $('#shade').onclick = closeDrawer;
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawerOpen() && !$('.modal-wrap')) closeDrawer(); });
+
+/* ---------- views ---------- */
+const VIEWS = {
+    overview: ['Overview', 'Local, imported and partner data at a glance'],
+    records: ['Records', 'Your own SQLite records: add, edit, delete, search'],
+    partner: ['Partner', "Retrieve a classmate's records, view them, save one"],
+    send: ['Send', "Send a fictional record to your partner's API"],
+    explorer: ['API Explorer', 'Try the Lab 7 endpoints against students.db']
+};
+function show(name) {
+    if (!VIEWS[name]) name = 'overview';
+    $$('.view').forEach(v => v.hidden = v.id !== 'v-' + name);
+    $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === name));
+    $('#viewTitle').textContent = VIEWS[name][0]; $('#viewSub').textContent = VIEWS[name][1];
+    if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+    window.scrollTo(0, 0);
+}
+$$('#nav button').forEach(b => b.onclick = () => show(b.dataset.v));
+
+/* ---------- details card ---------- */
+function detailCard(r) {
+    const kv = (k, v) => h('div', {}, h('small', {}, k), h('b', {}, v ?? 'N/A'));
+    return h('div', {class: 'dcard'},
+        h('div', {class: 'av'}, initials(r.name)), h('h3', {}, r.name || 'N/A'),
+        h('div', {class: 'muted mono'}, r.student_id), h('div', {style: 'margin: 10px 0'}, chip(r.source)),
+        h('div', {class: 'kv'}, kv('Program', r.program), kv('Year', r.year), kv('Section', r.section), kv('Database ID', r.id)));
+}
+function openDetails(r, remote) {
+    const nodes = [detailCard(r)];
+    if (remote) nodes.push(h('div', {class: 'row', style: 'margin-top:18px;justify-content:center'},
+        h('button', {class: 'btn primary', onclick: async e => { await savePartner(r, e.currentTarget); closeDrawer(); }}, 'Save to my database')));
+    openDrawer(remote ? "Partner's record" : 'Record details', ...nodes);
+}
+
+/* ---------- records ---------- */
+async function loadRecords(silent) {
+    try { state.records = await api('/api/students'); renderAll(); }
+    catch (e) { if (!silent) toast(e.message, 'err'); }
+}
+function tile(r) {
+    return h('article', {class: 'tile'},
+        h('div', {class: 'av'}, initials(r.name)),
+        h('div', {class: 'tmain'}, h('strong', {}, r.name), h('span', {class: 'mono muted'}, r.student_id),
+            h('span', {class: 'muted'}, `${r.program} · Year ${r.year} · Sec ${r.section}`)),
+        chip(r.source),
+        h('div', {class: 'tact'},
+            h('button', {class: 'btn small', onclick: () => openDetails(r, false)}, 'Details'),
+            h('button', {class: 'btn small', onclick: () => openForm(r)}, 'Edit'),
+            h('button', {class: 'btn small danger', onclick: () => deleteRecord(r)}, 'Delete')));
+}
+function renderRecords() {
+    const q = $('#q').value.toLowerCase().trim();
+    const rows = state.records.filter(r => !q || [r.name, r.student_id, r.program].some(v => String(v).toLowerCase().includes(q)));
+    $('#tiles').replaceChildren(...(rows.length ? rows.map(tile) : [h('div', {class: 'empty'}, 'No records match.')]));
+}
+$('#q').oninput = renderRecords;
+
+function openForm(rec) {
+    const edit = !!rec, f = Object.assign({student_id: '', name: '', program: '', year: '', section: ''}, rec);
+    const inp = {};
+    const field = (k, label, type) => { inp[k] = h('input', {type: type || 'text', value: f[k] ?? '', required: true, min: k === 'year' ? 1 : null}); return h('label', {}, h('span', {}, label), inp[k]); };
+    const form = h('form', {class: 'form', onsubmit: async e => {
+        e.preventDefault();
+        const body = {student_id: inp.student_id.value.trim(), name: inp.name.value.trim(), program: inp.program.value.trim(),
+                      year: Number(inp.year.value), section: inp.section.value.trim(), source: 'Local'};
+        try {
+            await api(edit ? '/api/students/' + rec.id : '/api/students', {method: edit ? 'PUT' : 'POST', headers: JSON_HEADERS, body: JSON.stringify(body)});
+            toast(edit ? 'Record updated' : 'Record added'); log((edit ? 'Updated ' : 'Added ') + body.name); closeDrawer(); await loadRecords();
+        } catch (err) { toast(err.message, 'err'); }
+    }}, field('student_id', 'Student ID'), field('name', 'Name'), field('program', 'Program'), field('year', 'Year', 'number'), field('section', 'Section'),
+        h('div', {class: 'row'}, h('button', {class: 'btn primary', type: 'submit'}, edit ? 'Save changes' : 'Add record'),
+            h('button', {class: 'btn', type: 'button', onclick: closeDrawer}, 'Cancel')));
+    openDrawer(edit ? 'Edit record' : 'New record', form); inp.student_id.focus();
+}
+$('#btnNew').onclick = () => openForm(null);
+async function deleteRecord(r) {
+    if (!await confirmDialog('Delete this record?', `${r.name} (${r.student_id}) will be removed from your database. This cannot be undone.`, 'Delete', true)) return;
+    try { await api('/api/students/' + r.id, {method: 'DELETE'}); toast('Record deleted'); log('Deleted ' + r.name); await loadRecords(); }
+    catch (e) { toast(e.message, 'err'); }
+}
+
+/* ---------- overview ---------- */
+function renderOverview() {
+    const local = state.records.filter(isLocal), imported = state.records.filter(r => !isLocal(r));
+    $('#nLocal').textContent = local.length; $('#nImported').textContent = imported.length; $('#nPartner').textContent = state.partner.length;
+    const mix = [[local.length, 'var(--teal)'], [imported.length, 'var(--green)'], [state.partner.length, 'var(--violet)']];
+    const total = mix.reduce((a, m) => a + m[0], 0);
+    $('#mix').replaceChildren(...(total ? mix.filter(m => m[0]).map(m => h('div', {style: `flex:${m[0]};background:${m[1]}`})) : [h('div', {style: 'flex:1'})]));
+    const rows = state.tab === 'local' ? local : state.tab === 'imported' ? imported : state.partner;
+    $('#dashList').replaceChildren(...(rows.length ? rows.map(r => h('div', {class: 'item'},
+        h('div', {class: 'av'}, initials(r.name)),
+        h('div', {class: 'grow'}, h('strong', {}, r.name), h('span', {class: 'muted'}, `${r.student_id} · ${r.program} · Year ${r.year}`)),
+        chip(r.source), state.tab === 'partner' ? h('button', {class: 'btn small', onclick: e => savePartner(r, e.currentTarget)}, 'Save') : null))
+        : [h('div', {class: 'empty'}, state.tab === 'partner' ? 'Retrieve partner records first.' : 'Nothing here yet.')]));
+    $$('#seg button').forEach(b => b.classList.toggle('on', b.dataset.t === state.tab));
+}
+$$('#seg button').forEach(b => b.onclick = () => { state.tab = b.dataset.t; renderOverview(); });
+function renderFeed() {
+    $('#feed').replaceChildren(...(state.feed.length ? state.feed.map(f => h('li', {}, h('time', {}, f.t), h('span', {}, f.msg)))
+        : [h('li', {class: 'muted'}, 'No activity yet. Retrieve, save or send a record.')]));
+}
+
+/* ---------- partner ---------- */
+function partnerRow(r) {
+    return h('div', {class: 'prow'}, h('div', {class: 'av'}, initials(r.name)),
+        h('div', {}, h('strong', {}, r.name), h('div', {class: 'muted'}, `${r.student_id || 'N/A'} · ${r.program || 'N/A'} · Year ${r.year ?? 'N/A'} · Sec ${r.section ?? 'N/A'}`)),
+        chip(r.source),
+        h('div', {class: 'acts'}, h('button', {class: 'btn small', onclick: () => openDetails(r, true)}, 'View'),
+            h('button', {class: 'btn small primary', onclick: e => savePartner(r, e.currentTarget)}, 'Save')));
+}
+function renderPartner() {
+    $('#pList').replaceChildren(...(state.partner.length ? state.partner.map(partnerRow) : []));
+}
+async function retrieve() {
+    const url = $('#pUrl').value.trim();
+    await busy($('#btnRetrieve'), async () => {
+        $('#pStatus').textContent = 'Retrieving partner records…';
+        try {
+            const data = await api('/partner-records?url=' + encodeURIComponent(url));
+            if (!Array.isArray(data)) throw new Error('Partner API did not return a list.');
+            state.partner = data; renderAll();
+            const host = url ? new URL(url).hostname : 'the server default';
+            $('#pStatus').textContent = `Retrieved ${data.length} record(s) from ${host}.`;
+            toast(`Retrieved ${data.length} partner record(s)`); log(`Retrieved ${data.length} records from ${host}`);
+        } catch (e) { $('#pStatus').textContent = 'Error: ' + e.message; toast(e.message, 'err'); }
+    });
+}
+$('#btnRetrieve').onclick = retrieve;
+async function savePartner(r, btn) {
+    const run = async () => {
+        try {
+            await api('/import-student', {method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(r)});
+            toast(`Saved ${r.name} to your database`); log(`Saved ${r.name} (Classmate API)`); await loadRecords();
+        } catch (e) { toast(e.message, 'err'); }
+    };
+    if (btn) await busy(btn, run); else await run();
+}
+/* the two partner URL boxes (Partner and Send pages) stay in sync */
+$$('.purl').forEach(i => i.oninput = () => $$('.purl').forEach(o => { if (o !== i) o.value = i.value; }));
+
+/* ---------- send ---------- */
+const sendRecord = () => ({student_id: $('#s_id').value.trim(), name: $('#s_name').value.trim(), program: $('#s_program').value.trim(),
+                           year: Number($('#s_year').value), section: $('#s_section').value.trim()});
+function renderPreview() {
+    const r = sendRecord(), kv = (k, v) => h('div', {}, h('small', {}, k), h('b', {}, v || '—'));
+    $('#preview').replaceChildren(h('div', {class: 'av'}, initials(r.name)), h('h3', {}, r.name || 'Name'), h('div', {class: 'muted mono'}, r.student_id || 'ID'),
+        h('div', {style: 'margin:10px 0'}, chip('Partner API')), h('div', {class: 'kv'}, kv('Program', r.program), kv('Year', r.year || ''), kv('Section', r.section)));
+}
+['#s_id', '#s_name', '#s_program', '#s_year', '#s_section'].forEach(s => $(s).oninput = renderPreview);
+const HTTP = {200: 'OK', 201: 'Created', 400: 'Bad Request', 404: 'Not Found', 409: 'Conflict', 500: 'Server Error', 502: 'Bad Gateway'};
+function parseReply(raw) { if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch (e) { return {message: raw}; } } return raw || {}; }
+const replyText = raw => { const r = parseReply(raw); return r.message || r.error || 'No message'; };
+function showReply(sent, status, raw) {
+    const reply = parseReply(raw), id = reply.id ?? (reply.student && reply.student.id);
+    const kv = (k, v) => h('div', {}, h('small', {}, k), h('b', {}, v ?? 'N/A'));
+    $('#reply').replaceChildren(h('div', {class: 'reply'}, h('h4', {}, '✓ Record sent to partner'),
+        h('div', {class: 'muted'}, `Partner replied ${status} ${HTTP[status] || ''}`),
+        h('div', {class: 'kv'}, kv('Student ID', sent.student_id), kv('Name', sent.name), kv('Program', sent.program), kv('Year', sent.year), kv('Section', sent.section), kv('Source', 'Partner API')),
+        h('div', {style: 'margin-top:10px'}, replyText(raw) + (id !== undefined ? ` (stored as ID ${id})` : ''))));
+}
+$('#btnSend').onclick = async () => {
+    const url = $('#sUrl').value.trim(), rec = sendRecord();
+    if (!url) return toast("Enter your partner's API URL first.", 'err');
+    if (!rec.student_id || !rec.name || !rec.program || !rec.section || !(rec.year >= 1)) return toast('Fill in every field of the record.', 'err');
+    if (!await confirmDialog('Send this record?', `${rec.name} (${rec.student_id}) will be sent to ${new URL(url).hostname}. Only send to your assigned partner.`, 'Send')) return;
+    $('#reply').replaceChildren();
+    await busy($('#btnSend'), async () => {
+        try {
+            const r = await fetch('/send-record', {method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({url, record: rec})});
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || `Partner replied ${d.partner_status}: ${replyText(d.partner_response)}`);
+            showReply(d.sent, d.partner_status, d.partner_response); log(`Sent ${rec.name} to ${new URL(url).hostname}`);
+        } catch (e) { toast(e.message, 'err'); }
+    });
+};
+
+/* ---------- API explorer ---------- */
+async function runEndpoint(path) {
+    const t0 = performance.now();
+    $('#out').replaceChildren(h('span', {class: 'muted'}, 'Calling ' + path + ' …'));
+    try {
+        const r = await fetch(path); const text = await r.text(); let body = text;
+        try { body = JSON.stringify(JSON.parse(text), null, 2); } catch (e) { /* show raw */ }
+        $('#out').replaceChildren(h('div', {}, h('span', {class: 'pill ' + (r.ok ? 'p-ok' : 'p-err')}, `${r.status} ${r.statusText || ''}`),
+            h('span', {class: 'muted mono', style: 'margin-left:10px'}, `GET ${path} · ${Math.round(performance.now() - t0)} ms`)), h('pre', {class: 'mono'}, body));
+    } catch (e) { $('#out').replaceChildren(h('span', {class: 'pill p-err'}, 'Network error'), h('pre', {}, e.message)); }
+}
+$$('[data-run]').forEach(b => b.onclick = () => runEndpoint(b.dataset.run));
+$('#runOne').onclick = () => runEndpoint('/students/' + (Number($('#e_id').value) || 1));
+$('#runFilter').onclick = () => {
+    const p = new URLSearchParams(); [['program', '#e_prog'], ['year', '#e_year'], ['section', '#e_sec']].forEach(([k, s]) => { if ($(s).value.trim()) p.append(k, $(s).value.trim()); });
+    runEndpoint('/students/filter?' + p.toString());
+};
+
+/* ---------- share my API ---------- */
+$('#myApiUrl').textContent = location.origin + '/api/students';
+$('#btnShare').onclick = async () => {
+    const url = location.origin + '/api/students';
+    try {
+        if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) await navigator.share({title: 'My Student API', url});
+        else await navigator.clipboard.writeText(url);
+        toast('Your API URL: ' + url);
+    } catch (e) { if (e.name === 'AbortError') return; window.prompt('Copy your API URL:', url); }
+};
+
+/* ---------- boot ---------- */
+function renderAll() { renderRecords(); renderOverview(); renderPartner(); }
+renderPreview(); renderFeed(); show((location.hash || '#overview').slice(1)); loadRecords();
+window.addEventListener('hashchange', () => show((location.hash || '#overview').slice(1)));
+setInterval(() => { if (!document.hidden && !drawerOpen()) loadRecords(true); }, 10000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !drawerOpen()) loadRecords(true); });
+</script>
+</body>
+</html>
