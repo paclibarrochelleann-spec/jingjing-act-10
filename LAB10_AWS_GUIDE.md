@@ -41,16 +41,16 @@ pwd
 **Steps 4–11 — option A, one script** (after cloning, or paste the script):
 ```
 cd ~
-git clone https://github.com/YOUR-GITHUB-USERNAME/jingjing-act-10.git
+git clone https://github.com/paclibarrochelleann-spec/jingjing-act-10.git
 cd jingjing-act-10
-bash deploy/setup_server.sh https://github.com/YOUR-GITHUB-USERNAME/jingjing-act-10.git
+bash deploy/setup_server.sh https://github.com/paclibarrochelleann-spec/jingjing-act-10.git
 ```
 
 **Steps 4–11 — option B, manually** (what the lab shows):
 ```
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3 python3-pip python3-venv git nginx
-cd ~ && git clone https://github.com/YOUR-GITHUB-USERNAME/jingjing-act-10.git && cd jingjing-act-10
+cd ~ && git clone https://github.com/paclibarrochelleann-spec/jingjing-act-10.git && cd jingjing-act-10
 python3 -m venv venv && source venv/bin/activate
 pip install --upgrade pip && pip install -r requirements.txt
 python init_db.py            # only if students.db is missing
